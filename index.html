@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>饭搭子 - 美食相亲平台</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- 角色选择登录页面 -->
+    <div class="role-select-page" id="roleSelectPage">
+        <div class="role-select-container">
+            <div class="role-select-header">
+                <div class="logo-large">
+                    <i class="fas fa-utensils"></i>
+                    <h1>饭搭子</h1>
+                    <p>美食相亲平台</p>
+                </div>
+            </div>
+            <div class="role-select-body">
+                <h2>请选择您的身份</h2>
+                <div class="role-cards">
+                    <div class="role-card" id="selectMerchant">
+                        <div class="role-icon merchant-icon">
+                            <i class="fas fa-store"></i>
+                        </div>
+                        <h3>我是商家</h3>
+                        <p>管理餐厅、上传菜品、制定套餐</p>
+                    </div>
+                    <div class="role-card" id="selectUser">
+                        <div class="role-icon user-icon">
+                            <i class="fas fa-user-friends"></i>
+                        </div>
+                        <h3>我是用户</h3>
+                        <p>发起邀约、接受邀约、寻找饭搭子</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商家登录弹窗 -->
+    <div class="modal" id="merchantLoginModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2><i class="fas fa-store"></i> 商家登录</h2>
+                <button class="modal-close" id="closeMerchantLogin">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="login-form">
+                    <div class="form-group">
+                        <label>商家手机号</label>
+                        <input type="tel" id="merchantPhone" placeholder="请输入手机号">
+                    </div>
+                    <div class="form-group">
+                        <label>验证码</label>
+                        <div class="code-input">
+                            <input type="text" id="merchantCode" placeholder="请输入验证码">
+                            <button class="btn-text" id="merchantSendCode">获取验证码</button>
+                        </div>
+                    </div>
+                    <button class="btn-primary btn-block" id="doMerchantLogin">登录</button>
+                </div>
+                <div class="login-divider"><span>快速体验</span></div>
+                <div class="demo-users">
+                    <button class="btn-demo" data-merchant="1">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23FFA500'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👨‍🍳%3C/text%3E%3C/svg%3E" alt="">
+                        <span>张老板 (花开半夏·中式餐厅)</span>
+                    </button>
+                    <button class="btn-demo" data-merchant="2">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23DDA0DD'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👩‍🍳%3C/text%3E%3C/svg%3E" alt="">
+                        <span>李经理 (La Maison 法式餐厅)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 用户登录弹窗 -->
+    <div class="modal" id="userLoginModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2><i class="fas fa-user"></i> 用户登录</h2>
+                <button class="modal-close" id="closeUserLogin">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="login-form">
+                    <div class="form-group">
+                        <label>手机号</label>
+                        <input type="tel" id="loginPhone" placeholder="请输入手机号">
+                    </div>
+                    <div class="form-group">
+                        <label>验证码</label>
+                        <div class="code-input">
+                            <input type="text" id="loginCode" placeholder="请输入验证码">
+                            <button class="btn-text" id="sendCodeBtn">获取验证码</button>
+                        </div>
+                    </div>
+                    <button class="btn-primary btn-block" id="doLogin">登录/注册</button>
+                </div>
+                <div class="login-divider"><span>快速体验</span></div>
+                <div class="demo-users">
+                    <button class="btn-demo" data-user="1">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23FFB6C1'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👩%3C/text%3E%3C/svg%3E" alt="">
+                        <span>小美 (女/26岁)</span>
+                    </button>
+                    <button class="btn-demo" data-user="2">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%2387CEEB'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👨%3C/text%3E%3C/svg%3E" alt="">
+                        <span>大明 (男/28岁)</span>
+                    </button>
+                    <button class="btn-demo" data-user="3">
+                        <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%2398FB98'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👩%3C/text%3E%3C/svg%3E" alt="">
+                        <span>小雨 (女/24岁)</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========== 用户端界面 ========== -->
+    <div class="app-container" id="userApp" style="display:none;">
+        <!-- 顶部导航 -->
+        <header class="header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-utensils"></i>
+                    <span>饭搭子</span>
+                </div>
+                <nav class="nav-menu">
+                    <a href="#" class="nav-item active" data-page="home">首页</a>
+                    <a href="#" class="nav-item" data-page="restaurants">商家</a>
+                    <a href="#" class="nav-item" data-page="orders">邀约大厅</a>
+                    <a href="#" class="nav-item" data-page="my-orders">我的订单</a>
+                    <a href="#" class="nav-item" data-page="reviews">评价中心</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="location-info">
+                    <i class="fas fa-map-marker-alt"></i>
+                    <span>北京市朝阳区</span>
+                </div>
+                <div class="user-menu" id="userMenu">
+                    <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='35' r='20' fill='%23ff6b35'/%3E%3Ccircle cx='50' cy='90' r='35' fill='%23ff6b35'/%3E%3C/svg%3E" alt="avatar" class="user-avatar">
+                    <span class="user-name">未登录</span>
+                    <div class="user-dropdown" id="userDropdown">
+                        <a href="#" id="profileBtn">个人中心</a>
+                        <a href="#" id="logoutBtn">退出登录</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- 主要内容区 -->
+        <main class="main-content">
+            <!-- 首页 -->
+            <section class="page active" id="page-home">
+                <div class="home-container">
+                    <div class="map-area">
+                        <div class="map-placeholder">
+                            <div class="map-grid"></div>
+                            <div class="nearby-markers" id="nearbyMarkers"></div>
+                            <div class="center-marker">
+                                <i class="fas fa-street-view"></i>
+                                <span>我的位置</span>
+                            </div>
+                        </div>
+                        <div class="map-overlay">
+                            <div class="quick-actions">
+                                <button class="btn-primary btn-large" id="createInviteBtn">
+                                    <i class="fas fa-plus-circle"></i>
+                                    发起邀约
+                                </button>
+                                <button class="btn-secondary btn-large" id="grabOrderBtn">
+                                    <i class="fas fa-hand-pointer"></i>
+                                    附近抢单
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sidebar-panel">
+                        <div class="panel-header">
+                            <h3><i class="fas fa-fire"></i> 附近热门邀约</h3>
+                            <span class="badge" id="nearbyCount">0</span>
+                        </div>
+                        <div class="invite-list" id="nearbyInvites"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 商家页面 -->
+            <section class="page" id="page-restaurants">
+                <div class="restaurant-container">
+                    <div class="filter-bar">
+                        <div class="search-box">
+                            <i class="fas fa-search"></i>
+                            <input type="text" placeholder="搜索餐厅或菜品..." id="restaurantSearch">
+                        </div>
+                        <div class="filter-tags">
+                            <span class="tag active" data-filter="all">全部</span>
+                            <span class="tag" data-filter="chinese">中餐</span>
+                            <span class="tag" data-filter="western">西餐</span>
+                            <span class="tag" data-filter="japanese">日料</span>
+                            <span class="tag" data-filter="korean">韩餐</span>
+                            <span class="tag" data-filter="hotpot">火锅</span>
+                        </div>
+                    </div>
+                    <div class="restaurant-grid" id="restaurantGrid"></div>
+                </div>
+            </section>
+
+            <!-- 邀约大厅 -->
+            <section class="page" id="page-orders">
+                <div class="orders-container">
+                    <div class="orders-filter">
+                        <div class="filter-row">
+                            <div class="filter-group">
+                                <label>付款方式：</label>
+                                <select id="filterPayType">
+                                    <option value="all">全部</option>
+                                    <option value="aa">AA制</option>
+                                    <option value="treat">我请客</option>
+                                    <option value="betreated">求请客</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>距离：</label>
+                                <select id="filterDistance">
+                                    <option value="all">不限</option>
+                                    <option value="1">1km内</option>
+                                    <option value="3">3km内</option>
+                                    <option value="5">5km内</option>
+                                </select>
+                            </div>
+                            <div class="filter-group">
+                                <label>排序：</label>
+                                <select id="filterSort">
+                                    <option value="time">最新发布</option>
+                                    <option value="distance">距离最近</option>
+                                    <option value="price">价格最低</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="orders-grid" id="ordersGrid"></div>
+                </div>
+            </section>
+
+            <!-- 我的订单 -->
+            <section class="page" id="page-my-orders">
+                <div class="my-orders-container">
+                    <div class="tabs">
+                        <span class="tab active" data-tab="my-invites">我发起的</span>
+                        <span class="tab" data-tab="my-grabs">我抢的单</span>
+                    </div>
+                    <div class="tab-content active" id="tab-my-invites">
+                        <div class="my-orders-list" id="myInvitesList"></div>
+                    </div>
+                    <div class="tab-content" id="tab-my-grabs">
+                        <div class="my-orders-list" id="myGrabsList"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 评价中心 -->
+            <section class="page" id="page-reviews">
+                <div class="reviews-container">
+                    <div class="reviews-header">
+                        <h2><i class="fas fa-star"></i> 评价中心</h2>
+                        <p>所有用餐评价，公开透明</p>
+                    </div>
+                    <div class="reviews-list" id="reviewsList"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========== 商家端界面 ========== -->
+    <div class="app-container" id="merchantApp" style="display:none;">
+        <header class="header merchant-header">
+            <div class="header-left">
+                <div class="logo">
+                    <i class="fas fa-store"></i>
+                    <span>饭搭子·商家版</span>
+                </div>
+                <nav class="nav-menu">
+                    <a href="#" class="nav-item active" data-mpage="dashboard">店铺管理</a>
+                    <a href="#" class="nav-item" data-mpage="packages">套餐管理</a>
+                    <a href="#" class="nav-item" data-mpage="merchant-reviews">顾客评价</a>
+                </nav>
+            </div>
+            <div class="header-right">
+                <div class="user-menu" id="merchantMenu">
+                    <img src="" alt="avatar" class="user-avatar" id="merchantAvatar">
+                    <span class="user-name" id="merchantName">商家</span>
+                    <div class="user-dropdown" id="merchantDropdown">
+                        <a href="#" id="merchantLogoutBtn">退出登录</a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <!-- 店铺管理 -->
+            <section class="page active" id="page-dashboard">
+                <div class="merchant-dashboard">
+                    <div class="dashboard-card">
+                        <h3><i class="fas fa-image"></i> 店铺照片</h3>
+                        <div class="upload-area" id="uploadArea">
+                            <div class="upload-preview" id="uploadPreview">
+                                <i class="fas fa-cloud-upload-alt"></i>
+                                <p>点击上传店铺图片</p>
+                            </div>
+                            <input type="file" id="imageUpload" accept="image/*" style="display:none">
+                        </div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3><i class="fas fa-info-circle"></i> 店铺信息</h3>
+                        <div class="shop-info" id="shopInfo"></div>
+                    </div>
+                    <div class="dashboard-card">
+                        <h3><i class="fas fa-chart-bar"></i> 经营数据</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <span class="stat-value" id="statOrders">12</span>
+                                <span class="stat-label">本月订单</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="statRating">4.8</span>
+                                <span class="stat-label">平均评分</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value" id="statPackages">0</span>
+                                <span class="stat-label">在售套餐</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 套餐管理 -->
+            <section class="page" id="page-packages">
+                <div class="packages-manage">
+                    <div class="packages-header">
+                        <h2>套餐管理</h2>
+                        <button class="btn-primary" id="addPackageBtn"><i class="fas fa-plus"></i> 新增套餐</button>
+                    </div>
+                    <div class="packages-list" id="merchantPackagesList"></div>
+                </div>
+            </section>
+
+            <!-- 顾客评价 -->
+            <section class="page" id="page-merchant-reviews">
+                <div class="reviews-container">
+                    <div class="reviews-header">
+                        <h2><i class="fas fa-comments"></i> 顾客评价</h2>
+                        <p>查看顾客对您餐厅的评价</p>
+                    </div>
+                    <div class="reviews-list" id="merchantReviewsList"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- ========== 公共弹窗 ========== -->
+
+    <!-- 发起邀约弹窗 -->
+    <div class="modal" id="inviteModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-paper-plane"></i> 发起邀约</h2>
+                <button class="modal-close" id="closeInviteModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="invite-form">
+                    <div class="form-section">
+                        <h3>选择餐厅和套餐</h3>
+                        <div class="form-group">
+                            <label>餐厅</label>
+                            <select id="inviteRestaurant">
+                                <option value="">请选择餐厅</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>双人套餐</label>
+                            <select id="invitePackage">
+                                <option value="">请先选择餐厅</option>
+                            </select>
+                        </div>
+                        <div class="package-preview" id="packagePreview"></div>
+                    </div>
+                    <div class="form-section">
+                        <h3>付款方式</h3>
+                        <div class="pay-options">
+                            <label class="radio-card">
+                                <input type="radio" name="payType" value="aa" checked>
+                                <div class="radio-card-content">
+                                    <i class="fas fa-handshake"></i>
+                                    <span>AA制</span>
+                                    <small>各付各的，轻松无压力</small>
+                                </div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="payType" value="treat">
+                                <div class="radio-card-content">
+                                    <i class="fas fa-gift"></i>
+                                    <span>我请客</span>
+                                    <small>展现你的诚意与大方</small>
+                                </div>
+                            </label>
+                            <label class="radio-card">
+                                <input type="radio" name="payType" value="betreated">
+                                <div class="radio-card-content">
+                                    <i class="fas fa-heart"></i>
+                                    <span>求请客</span>
+                                    <small>期待对方的慷慨</small>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>用餐时间</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>日期</label>
+                                <input type="date" id="inviteDate">
+                            </div>
+                            <div class="form-group">
+                                <label>时间</label>
+                                <input type="time" id="inviteTime" value="18:30">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>对TA的要求</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>性别</label>
+                                <select id="requireGender">
+                                    <option value="all">不限</option>
+                                    <option value="male">男</option>
+                                    <option value="female">女</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>年龄范围</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="requireAgeMin" placeholder="最小" min="18" max="60" value="20">
+                                    <span>-</span>
+                                    <input type="number" id="requireAgeMax" placeholder="最大" min="18" max="60" value="35">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>学历</label>
+                                <select id="requireEducation">
+                                    <option value="all">不限</option>
+                                    <option value="high-school">高中及以上</option>
+                                    <option value="college">大专及以上</option>
+                                    <option value="bachelor">本科及以上</option>
+                                    <option value="master">硕士及以上</option>
+                                    <option value="phd">博士及以上</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>身高(cm)</label>
+                                <div class="range-inputs">
+                                    <input type="number" id="requireHeightMin" placeholder="最低" min="140" max="210" value="155">
+                                    <span>-</span>
+                                    <input type="number" id="requireHeightMax" placeholder="最高" min="140" max="210" value="185">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>职业</label>
+                                <select id="requireOccupation">
+                                    <option value="all">不限</option>
+                                    <option value="it">互联网/IT</option>
+                                    <option value="finance">金融</option>
+                                    <option value="education">教育</option>
+                                    <option value="medical">医疗</option>
+                                    <option value="government">公务员</option>
+                                    <option value="art">文艺/传媒</option>
+                                    <option value="business">商业/销售</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>一句话介绍</h3>
+                        <div class="form-group">
+                            <textarea id="inviteMessage" placeholder="写一句打动人心的话..." rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="price-summary">
+                    <span>需支付：</span>
+                    <span class="price" id="totalPrice">¥0.00</span>
+                </div>
+                <button class="btn-primary" id="submitInvite">确认支付并发布</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 抢单弹窗 -->
+    <div class="modal" id="grabModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-bolt"></i> 抢单详情</h2>
+                <button class="modal-close" id="closeGrabModal">&times;</button>
+            </div>
+            <div class="modal-body" id="grabModalBody"></div>
+            <div class="modal-footer">
+                <div class="price-summary">
+                    <span>需支付：</span>
+                    <span class="price" id="grabPrice">¥0.00</span>
+                </div>
+                <button class="btn-primary" id="confirmGrab">确认支付并抢单</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 支付弹窗 -->
+    <div class="modal" id="payModal">
+        <div class="modal-content modal-small">
+            <div class="modal-header">
+                <h2><i class="fas fa-credit-card"></i> 确认支付</h2>
+                <button class="modal-close" id="closePayModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="pay-info">
+                    <div class="pay-amount" id="payAmount">¥0.00</div>
+                    <div class="pay-detail" id="payDetail"></div>
+                </div>
+                <div class="pay-methods">
+                    <label class="radio-card horizontal">
+                        <input type="radio" name="payMethod" value="wechat" checked>
+                        <div class="radio-card-content">
+                            <i class="fab fa-weixin" style="color:#07c160"></i>
+                            <span>微信支付</span>
+                        </div>
+                    </label>
+                    <label class="radio-card horizontal">
+                        <input type="radio" name="payMethod" value="alipay">
+                        <div class="radio-card-content">
+                            <i class="fab fa-alipay" style="color:#1677ff"></i>
+                            <span>支付宝</span>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary btn-block" id="confirmPay">确认支付</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 支付成功弹窗 -->
+    <div class="modal" id="successModal">
+        <div class="modal-content modal-small">
+            <div class="modal-body" style="text-align:center;padding:40px;">
+                <div class="success-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <h2 id="successTitle">操作成功！</h2>
+                <p id="successMessage">您的邀约已发布成功，等待有缘人来抢单吧！</p>
+                <button class="btn-primary" id="successClose">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 评价弹窗 -->
+    <div class="modal" id="reviewModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h2><i class="fas fa-star"></i> 用餐评价</h2>
+                <button class="modal-close" id="closeReviewModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="review-form">
+                    <div class="form-section">
+                        <h3>套餐评分</h3>
+                        <div class="star-rating" id="packageStars">
+                            <i class="fas fa-star" data-value="1"></i>
+                            <i class="fas fa-star" data-value="2"></i>
+                            <i class="fas fa-star" data-value="3"></i>
+                            <i class="fas fa-star" data-value="4"></i>
+                            <i class="fas fa-star" data-value="5"></i>
+                        </div>
+                        <div class="form-group">
+                            <textarea id="packageComment" placeholder="评价一下这次的套餐..." rows="3"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-section">
+                        <h3>饭搭子评分</h3>
+                        <div class="partner-info-mini" id="reviewPartnerInfo"></div>
+                        <div class="star-rating" id="partnerStars">
+                            <i class="fas fa-star" data-value="1"></i>
+                            <i class="fas fa-star" data-value="2"></i>
+                            <i class="fas fa-star" data-value="3"></i>
+                            <i class="fas fa-star" data-value="4"></i>
+                            <i class="fas fa-star" data-value="5"></i>
+                        </div>
+                        <div class="form-group">
+                            <textarea id="partnerComment" placeholder="评价一下你的饭搭子..." rows="3"></textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="submitReview">提交评价</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 商家新增/编辑套餐弹窗 -->
+    <div class="modal" id="packageModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-utensils"></i> <span id="packageModalTitle">新增套餐</span></h2>
+                <button class="modal-close" id="closePackageModal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>套餐名称</label>
+                    <input type="text" id="pkgName" placeholder="例如：浪漫双人烛光套餐">
+                </div>
+                <div class="form-group">
+                    <label>套餐价格 (元)</label>
+                    <input type="number" id="pkgPrice" placeholder="请输入价格" min="1">
+                </div>
+                <div class="form-group">
+                    <label>菜品内容</label>
+                    <textarea id="pkgItems" placeholder="例如：前菜×2、松茸汤、黑椒牛排..." rows="4"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" id="savePackage">保存套餐</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div class="toast" id="toast"></div>
+
+    <script src="js/data.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
