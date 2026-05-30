@@ -132,6 +132,7 @@
                     <a href="#" class="nav-item" data-page="restaurants">商家</a>
                     <a href="#" class="nav-item" data-page="orders">邀约大厅</a>
                     <a href="#" class="nav-item" data-page="my-orders">我的订单</a>
+                    <a href="#" class="nav-item" data-page="chat">私信</a>
                     <a href="#" class="nav-item" data-page="reviews">评价中心</a>
                 </nav>
             </div>
@@ -212,6 +213,10 @@
             <!-- 邀约大厅 -->
             <section class="page" id="page-orders">
                 <div class="orders-container">
+                    <div class="orders-filter-tabs">
+                        <button class="orders-filter-tab active" data-view="all">全部邀约</button>
+                        <button class="orders-filter-tab" data-view="bookmarked">我的收藏</button>
+                    </div>
                     <div class="orders-filter">
                         <div class="filter-row">
                             <div class="filter-group">
@@ -270,6 +275,26 @@
                         <p>所有用餐评价，公开透明</p>
                     </div>
                     <div class="reviews-list" id="reviewsList"></div>
+                </div>
+            </section>
+
+            <!-- 私信页面 -->
+            <section class="page" id="page-chat">
+                <div class="chat-container">
+                    <div class="chat-sidebar">
+                        <div class="chat-sidebar-header">
+                            <h3><i class="fas fa-comments"></i> 私信列表</h3>
+                        </div>
+                        <div class="chat-conversation-list" id="conversationList">
+                            <div class="empty-state"><i class="fas fa-comment-slash"></i><p>暂无聊天记录</p></div>
+                        </div>
+                    </div>
+                    <div class="chat-main" id="chatMain">
+                        <div class="chat-placeholder">
+                            <i class="fas fa-comments"></i>
+                            <p>选择一个对话开始聊天</p>
+                        </div>
+                    </div>
                 </div>
             </section>
         </main>

@@ -46,7 +46,11 @@ router.post('/user/login', (req, res) => {
       education: user.education,
       occupation: user.occupation,
       occupationLabel: user.occupation_label,
-      avatar: user.avatar
+      avatar: user.avatar,
+      tasteTags: user.taste_tags || '',
+      pricePref: user.price_pref || '',
+      cuisinePref: user.cuisine_pref || '',
+      diningStyle: user.dining_style || ''
     }
   });
 });
@@ -98,7 +102,11 @@ router.get('/me', authMiddleware, (req, res) => {
         education: user.education,
         occupation: user.occupation,
         occupationLabel: user.occupation_label,
-        avatar: user.avatar
+        avatar: user.avatar,
+        tasteTags: user.taste_tags || '',
+        pricePref: user.price_pref || '',
+        cuisinePref: user.cuisine_pref || '',
+        diningStyle: user.dining_style || ''
       }
     });
   } else if (req.user.role === 'merchant') {

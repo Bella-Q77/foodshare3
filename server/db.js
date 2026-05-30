@@ -91,7 +91,32 @@ db.exec(`
     FOREIGN KEY (user_id) REFERENCES users(id),
     FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
   );
+
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    from_user_id INTEGER NOT NULL,
+    to_user_id INTEGER NOT NULL,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (from_user_id) REFERENCES users(id),
+    FOREIGN KEY (to_user_id) REFERENCES users(id)
+  );
+
+  CREATE TABLE IF NOT EXISTS bookmarks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    invite_id INTEGER NOT NULL,
+    created_at TEXT DEFAULT (datetime('now','localtime')),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (invite_id) REFERENCES invites(id),
+    UNIQUE(user_id, invite_id)
+  );
 `);
+
+try { db.exec(`ALTER TABLE users ADD COLUMN taste_tags TEXT DEFAULT ''`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN price_pref TEXT DEFAULT ''`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN cuisine_pref TEXT DEFAULT ''`); } catch(e) {}
+try { db.exec(`ALTER TABLE users ADD COLUMN dining_style TEXT DEFAULT ''`); } catch(e) {}
 
 function seedDatabase() {
   const userCount = db.prepare('SELECT COUNT(*) as cnt FROM users').get().cnt;
@@ -108,6 +133,10 @@ function seedDatabase() {
     insertUser.run(1, '小美', '13800001234', 'female', 26, 165, 'bachelor', 'it', '互联网产品经理', '');
     insertUser.run(2, '大明', '13900005678', 'male', 28, 178, 'master', 'finance', '金融分析师', '');
     insertUser.run(3, '小雨', '13600009012', 'female', 24, 162, 'bachelor', 'art', '自媒体博主', '');
+
+    db.prepare(`UPDATE users SET taste_tags='辣,清淡,甜食', price_pref='100-300', cuisine_pref='日料,中餐,火锅', dining_style='安静优雅' WHERE id=1`).run();
+    db.prepare(`UPDATE users SET taste_tags='重口味,烧烤,海鲜', price_pref='200-500', cuisine_pref='西餐,日料,韩餐', dining_style='热闹社交' WHERE id=2`).run();
+    db.prepare(`UPDATE users SET taste_tags='甜食,奶茶,轻食', price_pref='50-200', cuisine_pref='火锅,韩餐,甜品', dining_style='拍照打卡' WHERE id=3`).run();
 
     insertMerchant.run(1, '张老板', '13100008888', 1, '');
     insertMerchant.run(2, '李经理', '13200006666', 2, '');
