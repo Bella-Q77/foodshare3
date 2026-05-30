@@ -62,7 +62,7 @@ router.post('/', authMiddleware, (req, res) => {
 });
 
 router.get('/users', (req, res) => {
-  const users = db.prepare('SELECT id, name, gender, age, height, education, occupation, occupation_label, avatar FROM users').all();
+  const users = db.prepare('SELECT id, name, gender, age, height, education, occupation, occupation_label, avatar, taste_tags, price_pref, cuisine_pref, dining_style FROM users').all();
   res.json(users.map(u => ({
     id: u.id,
     name: u.name,
@@ -72,7 +72,11 @@ router.get('/users', (req, res) => {
     education: u.education,
     occupation: u.occupation,
     occupationLabel: u.occupation_label,
-    avatar: u.avatar
+    avatar: u.avatar,
+    tasteTags: u.taste_tags || '',
+    pricePref: u.price_pref || '',
+    cuisinePref: u.cuisine_pref || '',
+    diningStyle: u.dining_style || ''
   })));
 });
 

@@ -9,11 +9,15 @@ class FoodShareApp {
         this.reviews = [];
         this.myInvites = [];
         this.myGrabs = [];
+        this.bookmarks = [];
+        this.conversations = [];
+        this.currentChatPartner = null;
         this.currentGrabInvite = null;
         this.currentReviewOrder = null;
         this.editingPackageId = null;
         this.packageRating = 0;
         this.partnerRating = 0;
+        this.ordersView = 'all';
         this._userAppInitialized = false;
         this._merchantAppInitialized = false;
         this.init();
@@ -195,15 +199,26 @@ class FoodShareApp {
             this.bindFilters();
             this.bindTabs();
             this.bindReviewForm();
+            this.bindOrdersViewTabs();
             this._userAppInitialized = true;
         }
+        this.currentChatPartner = null;
+        this.conversations = [];
+        document.getElementById('chatMain').innerHTML = `
+            <div class="chat-placeholder">
+                <i class="fas fa-comments"></i>
+                <p>选择一个对话开始聊天</p>
+            </div>
+        `;
         await this.loadData();
+        await this.loadConversations();
         this.renderNearbyInvites();
         this.renderMapMarkers();
         this.renderRestaurants();
         this.renderOrders();
         this.renderMyOrders();
         this.renderReviews();
+        this.renderConversations();
         this.setDefaultDate();
     }
 
@@ -223,13 +238,14 @@ class FoodShareApp {
     }
 
     async loadData() {
-        const [restaurants, invites, reviews, users, myInvites, myGrabs] = await Promise.all([
+        const [restaurants, invites, reviews, users, myInvites, myGrabs, bookmarks] = await Promise.all([
             api('/api/restaurants'),
             api('/api/invites'),
             api('/api/reviews'),
             api('/api/reviews/users'),
             api('/api/invites/my/sent'),
-            api('/api/invites/my/grabs')
+            api('/api/invites/my/grabs'),
+            api('/api/bookmarks')
         ]);
         this.restaurants = restaurants || [];
         this.invites = invites || [];
@@ -237,6 +253,7 @@ class FoodShareApp {
         this.users = users || [];
         this.myInvites = myInvites || [];
         this.myGrabs = myGrabs || [];
+        this.bookmarks = bookmarks || [];
     }
 
     async loadRestaurants() {
@@ -287,6 +304,7 @@ class FoodShareApp {
         document.querySelector(`#userApp [data-page="${page}"]`).classList.add('active');
         document.querySelectorAll('#userApp .page').forEach(p => p.classList.remove('active'));
         document.getElementById(`page-${page}`).classList.add('active');
+        if (page === 'chat') this.loadConversations();
     }
 
     bindMerchantNav() {
@@ -543,6 +561,7 @@ class FoodShareApp {
         else grabPrice = pkg.price;
 
         const requirementsHtml = this.buildRequirementsHtml(invite.requirements);
+        const tagsHtml = this.buildUserTagsHtml(user);
 
         document.getElementById('grabModalBody').innerHTML = `
             <div class="grab-detail">
@@ -553,6 +572,7 @@ class FoodShareApp {
                         <div>
                             <h4>${user.name}</h4>
                             <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.height || ''}cm · ${user.occupationLabel || ''}</p>
+                            ${tagsHtml}
                         </div>
                     </div>
                 </div>
@@ -577,6 +597,11 @@ class FoodShareApp {
                     <h4>TA说</h4>
                     <div class="grab-message-box">"${invite.message}"</div>
                 </div>` : ''}
+                <div class="grab-detail-section">
+                    <button class="btn-secondary" onclick="app.openChatWith(${user.id})">
+                        <i class="fas fa-comment"></i> 私信TA
+                    </button>
+                </div>
             </div>
         `;
 
@@ -593,6 +618,24 @@ class FoodShareApp {
         if (req.heightMin || req.heightMax) tags.push(`身高 ${req.heightMin}-${req.heightMax}cm`);
         if (req.occupation !== 'all') tags.push(OCCUPATION_MAP[req.occupation]);
         return tags.map(t => `<span class="grab-requirement">${t}</span>`).join('');
+    }
+
+    buildUserTagsHtml(user) {
+        const tags = [];
+        if (user.tasteTags) {
+            user.tasteTags.split(',').forEach(t => tags.push(`<span class="interest-tag taste">${t.trim()}</span>`));
+        }
+        if (user.pricePref) {
+            tags.push(`<span class="interest-tag price">¥${user.pricePref}</span>`);
+        }
+        if (user.cuisinePref) {
+            user.cuisinePref.split(',').forEach(t => tags.push(`<span class="interest-tag cuisine">${t.trim()}</span>`));
+        }
+        if (user.diningStyle) {
+            tags.push(`<span class="interest-tag style">${user.diningStyle}</span>`);
+        }
+        if (tags.length === 0) return '';
+        return `<div class="user-tags">${tags.join('')}</div>`;
     }
 
     async confirmGrabOrder() {
@@ -648,6 +691,149 @@ class FoodShareApp {
         document.getElementById('successTitle').textContent = title;
         document.getElementById('successMessage').textContent = message;
         this.showModal('successModal');
+    }
+
+    // ======== Bookmark System ========
+    bindOrdersViewTabs() {
+        document.querySelectorAll('.orders-filter-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.orders-filter-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                this.ordersView = tab.dataset.view;
+                this.renderOrders();
+            });
+        });
+    }
+
+    isBookmarked(inviteId) {
+        return this.bookmarks.includes(inviteId);
+    }
+
+    async toggleBookmark(inviteId, e) {
+        if (e) { e.stopPropagation(); e.preventDefault(); }
+        if (this.isBookmarked(inviteId)) {
+            await api(`/api/bookmarks/${inviteId}`, { method: 'DELETE' });
+            this.bookmarks = this.bookmarks.filter(id => id !== inviteId);
+        } else {
+            await api(`/api/bookmarks/${inviteId}`, { method: 'POST' });
+            this.bookmarks.push(inviteId);
+        }
+        this.renderOrders();
+        this.renderNearbyInvites();
+    }
+
+    // ======== Chat System ========
+    async loadConversations() {
+        const data = await api('/api/messages/conversations');
+        this.conversations = data || [];
+        this.renderConversations();
+    }
+
+    renderConversations() {
+        const container = document.getElementById('conversationList');
+        if (!this.conversations || this.conversations.length === 0) {
+            container.innerHTML = '<div class="empty-state"><i class="fas fa-comment-slash"></i><p>暂无聊天记录</p></div>';
+            return;
+        }
+
+        container.innerHTML = this.conversations.map(c => {
+            const avatar = this.getUserAvatar({ gender: c.partnerGender, avatar: c.partnerAvatar });
+            const time = c.lastTime ? c.lastTime.slice(5, 16) : '';
+            return `
+                <div class="conversation-item ${this.currentChatPartner === c.partnerId ? 'active' : ''}" onclick="app.openChat(${c.partnerId})">
+                    <img src="${avatar}" alt="">
+                    <div class="conversation-info">
+                        <div class="conversation-name">${c.partnerName}</div>
+                        <div class="conversation-last">${c.lastMessage}</div>
+                    </div>
+                    <span class="conversation-time">${time}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    async openChat(partnerId) {
+        this.currentChatPartner = partnerId;
+        const partner = this.getUser(partnerId);
+        const chatMain = document.getElementById('chatMain');
+        const tagsHtml = this.buildUserTagsHtml(partner);
+
+        chatMain.innerHTML = `
+            <div class="chat-header">
+                <img src="${this.getUserAvatar(partner)}" alt="">
+                <div class="chat-header-info">
+                    <h4>${partner.name}</h4>
+                    <p>${partner.gender === 'male' ? '男' : '女'} · ${partner.age}岁 · ${partner.occupationLabel || ''}</p>
+                    ${tagsHtml}
+                </div>
+            </div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-input-area">
+                <input type="text" id="chatInput" placeholder="输入消息..." onkeypress="if(event.key==='Enter')app.sendMessage()">
+                <button class="chat-send-btn" onclick="app.sendMessage()"><i class="fas fa-paper-plane"></i></button>
+            </div>
+        `;
+
+        await this.loadChatHistory(partnerId);
+        this.renderConversations();
+    }
+
+    async openChatWith(userId) {
+        this.hideModal('grabModal');
+        this.navigateTo('chat');
+        await this.loadConversations();
+        await this.openChat(userId);
+    }
+
+    async loadChatHistory(partnerId) {
+        const messages = await api(`/api/messages/history/${partnerId}`);
+        const container = document.getElementById('chatMessages');
+        if (!messages || messages.length === 0) {
+            container.innerHTML = '<div class="empty-state" style="padding:40px"><p>暂无聊天记录，发送消息开始对话吧</p></div>';
+            return;
+        }
+
+        container.innerHTML = messages.map(msg => {
+            const isSent = msg.fromUserId === this.currentUser.id;
+            const user = isSent ? this.currentUser : this.getUser(partnerId);
+            return `
+                <div class="chat-msg ${isSent ? 'sent' : 'received'}">
+                    <img src="${this.getUserAvatar(user)}" alt="">
+                    <div>
+                        <div class="chat-bubble">${this.escapeHtml(msg.content)}</div>
+                        <div class="chat-msg-time">${msg.createdAt ? msg.createdAt.slice(5, 16) : ''}</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async sendMessage() {
+        const input = document.getElementById('chatInput');
+        const content = input.value.trim();
+        if (!content || !this.currentChatPartner) return;
+
+        input.value = '';
+        const data = await api('/api/messages/send', {
+            method: 'POST',
+            body: JSON.stringify({ toUserId: this.currentChatPartner, content })
+        });
+
+        if (!data || data.error) {
+            this.showToast(data?.error || '发送失败');
+            return;
+        }
+
+        await this.loadChatHistory(this.currentChatPartner);
+        await this.loadConversations();
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     // ======== Review System ========
@@ -799,6 +985,7 @@ class FoodShareApp {
             const restaurant = this.getRestaurant(invite.restaurantId);
             const pkg = this.getPackage(invite.restaurantId, invite.packageId);
             const payInfo = PAY_TYPE_MAP[invite.payType];
+            const bookmarked = this.isBookmarked(invite.id);
 
             return `
                 <div class="invite-card" onclick="app.showGrabDetail(${invite.id})">
@@ -900,7 +1087,11 @@ class FoodShareApp {
 
     renderOrders() {
         const container = document.getElementById('ordersGrid');
-        const visibleInvites = this.invites;
+        let visibleInvites = this.invites;
+
+        if (this.ordersView === 'bookmarked') {
+            visibleInvites = visibleInvites.filter(i => this.isBookmarked(i.id));
+        }
 
         container.innerHTML = visibleInvites.map(invite => {
             const user = this.getUser(invite.userId);
@@ -908,6 +1099,8 @@ class FoodShareApp {
             const pkg = this.getPackage(invite.restaurantId, invite.packageId);
             const payInfo = PAY_TYPE_MAP[invite.payType];
             const requirements = this.buildRequirementsHtml(invite.requirements);
+            const bookmarked = this.isBookmarked(invite.id);
+            const tagsHtml = this.buildUserTagsHtml(user);
 
             let displayPrice = '';
             if (invite.payType === 'aa') displayPrice = `¥${(pkg.price / 2).toFixed(0)} <small>/人</small>`;
@@ -916,12 +1109,16 @@ class FoodShareApp {
 
             return `
                 <div class="order-card" onclick="app.showGrabDetail(${invite.id})">
+                    <button class="bookmark-btn ${bookmarked ? 'bookmarked' : ''}" onclick="app.toggleBookmark(${invite.id}, event)" title="${bookmarked ? '取消收藏' : '收藏邀约'}">
+                        <i class="fas fa-bookmark"></i>
+                    </button>
                     <div class="order-card-top">
                         <div class="order-user">
                             <img src="${this.getUserAvatar(user)}" alt="">
                             <div class="order-user-info">
                                 <h4>${user.name}</h4>
                                 <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.occupationLabel || ''}</p>
+                                ${tagsHtml}
                             </div>
                         </div>
                         <span class="invite-pay-tag ${payInfo.class}">${payInfo.label}</span>
@@ -943,7 +1140,7 @@ class FoodShareApp {
         }).join('');
 
         if (visibleInvites.length === 0) {
-            container.innerHTML = '<div class="empty-state"><i class="fas fa-inbox"></i><p>暂无符合您条件的邀约</p></div>';
+            container.innerHTML = `<div class="empty-state"><i class="fas fa-inbox"></i><p>${this.ordersView === 'bookmarked' ? '暂无收藏的邀约' : '暂无符合您条件的邀约'}</p></div>`;
         }
     }
 

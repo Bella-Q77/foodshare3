@@ -9,21 +9,7 @@ router.get('/', authMiddleware, (req, res) => {
 
   const invites = db.prepare(`SELECT * FROM invites WHERE status = 'waiting' AND user_id != ?`).all(req.user.id);
 
-  const visible = invites.filter(invite => {
-    if (invite.req_gender !== 'all' && user.gender !== invite.req_gender) return false;
-    if (user.age < invite.req_age_min || user.age > invite.req_age_max) return false;
-    if (invite.req_education !== 'all') {
-      const levels = ['all', 'high-school', 'college', 'bachelor', 'master', 'phd'];
-      const reqLevel = levels.indexOf(invite.req_education);
-      const userLevel = levels.indexOf(user.education);
-      if (userLevel < reqLevel) return false;
-    }
-    if (user.height < invite.req_height_min || user.height > invite.req_height_max) return false;
-    if (invite.req_occupation !== 'all' && user.occupation !== invite.req_occupation) return false;
-    return true;
-  });
-
-  const result = visible.map(i => ({
+  const result = invites.map(i => ({
     id: i.id,
     userId: i.user_id,
     restaurantId: i.restaurant_id,
