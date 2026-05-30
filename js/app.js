@@ -2,9 +2,11 @@ class FoodShareApp {
     constructor() {
         this.currentUser = null;
         this.currentMerchant = null;
-        this.role = null; // 'user' or 'merchant'
-        this.invites = [...MOCK_DATA.invites];
-        this.reviews = [...MOCK_DATA.reviews];
+        this.role = null;
+        this.restaurants = [];
+        this.users = [];
+        this.invites = [];
+        this.reviews = [];
         this.myInvites = [];
         this.myGrabs = [];
         this.currentGrabInvite = null;
@@ -17,9 +19,63 @@ class FoodShareApp {
         this.init();
     }
 
-    init() {
+    async init() {
         this.bindRoleSelect();
         this.bindLoginModals();
+        await this.tryAutoLogin();
+    }
+
+    async tryAutoLogin() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const data = await api('/api/auth/me');
+        if (!data) return;
+
+        if (data.role === 'user') {
+            this.currentUser = data.user;
+            this.role = 'user';
+            document.getElementById('roleSelectPage').style.display = 'none';
+            document.getElementById('userApp').style.display = 'block';
+            document.querySelector('.user-name').textContent = this.currentUser.name;
+            this.setUserAvatar();
+            await this.initUserApp();
+        } else if (data.role === 'merchant') {
+            this.currentMerchant = data.merchant;
+            this.role = 'merchant';
+            document.getElementById('roleSelectPage').style.display = 'none';
+            document.getElementById('merchantApp').style.display = 'block';
+            document.getElementById('merchantName').textContent = this.currentMerchant.name;
+            this.setMerchantAvatar();
+            await this.initMerchantApp();
+        }
+    }
+
+    setUserAvatar() {
+        const avatarEl = document.querySelector('#userApp .user-avatar');
+        if (this.currentUser.avatar) {
+            avatarEl.src = this.currentUser.avatar;
+        } else {
+            const emoji = this.currentUser.gender === 'female' ? '👩' : '👨';
+            const color = this.currentUser.gender === 'female' ? '%23FFB6C1' : '%2387CEEB';
+            avatarEl.src = `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='${color}'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E${emoji}%3C/text%3E%3C/svg%3E`;
+        }
+    }
+
+    setMerchantAvatar() {
+        const avatarEl = document.getElementById('merchantAvatar');
+        if (this.currentMerchant.avatar) {
+            avatarEl.src = this.currentMerchant.avatar;
+        } else {
+            avatarEl.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23FFA500'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E👨‍🍳%3C/text%3E%3C/svg%3E";
+        }
+    }
+
+    getUserAvatar(user) {
+        if (user.avatar) return user.avatar;
+        const emoji = user.gender === 'female' ? '👩' : '👨';
+        const color = user.gender === 'female' ? '%23FFB6C1' : '%2387CEEB';
+        return `data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='${color}'/%3E%3Ctext x='50' y='65' text-anchor='middle' font-size='40'%3E${emoji}%3C/text%3E%3C/svg%3E`;
     }
 
     // ======== Role Selection ========
@@ -36,18 +92,33 @@ class FoodShareApp {
         document.getElementById('closeMerchantLogin').addEventListener('click', () => this.hideModal('merchantLoginModal'));
         document.getElementById('closeUserLogin').addEventListener('click', () => this.hideModal('userLoginModal'));
 
-        document.getElementById('doMerchantLogin').addEventListener('click', () => this.merchantLogin(1));
-        document.getElementById('doLogin').addEventListener('click', () => this.userLogin(1));
+        document.getElementById('doMerchantLogin').addEventListener('click', () => this.doMerchantLogin());
+        document.getElementById('doLogin').addEventListener('click', () => this.doUserLogin());
+
+        document.getElementById('merchantSendCode').addEventListener('click', () => {
+            this.showToast('验证码已发送，验证码为：123456');
+        });
+        document.getElementById('sendCodeBtn').addEventListener('click', () => {
+            this.showToast('验证码已发送，验证码为：123456');
+        });
 
         document.querySelectorAll('[data-merchant]').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.merchantLogin(parseInt(btn.dataset.merchant));
+                const mid = parseInt(btn.dataset.merchant);
+                const phones = { 1: '13100008888', 2: '13200006666' };
+                document.getElementById('merchantPhone').value = phones[mid] || '';
+                document.getElementById('merchantCode').value = '123456';
+                this.doMerchantLogin();
             });
         });
 
         document.querySelectorAll('[data-user]').forEach(btn => {
             btn.addEventListener('click', () => {
-                this.userLogin(parseInt(btn.dataset.user));
+                const uid = parseInt(btn.dataset.user);
+                const phones = { 1: '13800001234', 2: '13900005678', 3: '13600009012' };
+                document.getElementById('loginPhone').value = phones[uid] || '';
+                document.getElementById('loginCode').value = '123456';
+                this.doUserLogin();
             });
         });
 
@@ -58,32 +129,64 @@ class FoodShareApp {
         });
     }
 
-    merchantLogin(merchantId) {
-        this.currentMerchant = MOCK_DATA.merchants.find(m => m.id === merchantId);
+    async doMerchantLogin() {
+        const phone = document.getElementById('merchantPhone').value.trim();
+        const code = document.getElementById('merchantCode').value.trim();
+
+        if (!phone) { this.showToast('请输入手机号'); return; }
+        if (!code) { this.showToast('请输入验证码'); return; }
+
+        const data = await api('/api/auth/merchant/login', {
+            method: 'POST',
+            body: JSON.stringify({ phone, code })
+        });
+
+        if (!data) { this.showToast('登录失败'); return; }
+        if (data.error) { this.showToast(data.error); return; }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', 'merchant');
+        this.currentMerchant = data.merchant;
         this.role = 'merchant';
         document.getElementById('roleSelectPage').style.display = 'none';
         document.getElementById('merchantApp').style.display = 'block';
-        document.getElementById('merchantAvatar').src = this.currentMerchant.avatar;
         document.getElementById('merchantName').textContent = this.currentMerchant.name;
+        this.setMerchantAvatar();
         this.hideModal('merchantLoginModal');
-        this.initMerchantApp();
+        await this.initMerchantApp();
         this.showToast(`欢迎回来，${this.currentMerchant.name}！`);
     }
 
-    userLogin(userId) {
-        this.currentUser = MOCK_DATA.users.find(u => u.id === userId);
+    async doUserLogin() {
+        const phone = document.getElementById('loginPhone').value.trim();
+        const code = document.getElementById('loginCode').value.trim();
+
+        if (!phone) { this.showToast('请输入手机号'); return; }
+        if (!code) { this.showToast('请输入验证码'); return; }
+
+        const data = await api('/api/auth/user/login', {
+            method: 'POST',
+            body: JSON.stringify({ phone, code })
+        });
+
+        if (!data) { this.showToast('登录失败'); return; }
+        if (data.error) { this.showToast(data.error); return; }
+
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('role', 'user');
+        this.currentUser = data.user;
         this.role = 'user';
         document.getElementById('roleSelectPage').style.display = 'none';
         document.getElementById('userApp').style.display = 'block';
         document.querySelector('.user-name').textContent = this.currentUser.name;
-        document.querySelector('.user-avatar').src = this.currentUser.avatar;
+        this.setUserAvatar();
         this.hideModal('userLoginModal');
-        this.initUserApp();
+        await this.initUserApp();
         this.showToast(`欢迎回来，${this.currentUser.name}！`);
     }
 
     // ======== User App Init ========
-    initUserApp() {
+    async initUserApp() {
         if (!this._userAppInitialized) {
             this.bindNavigation();
             this.bindUserMenu();
@@ -94,6 +197,7 @@ class FoodShareApp {
             this.bindReviewForm();
             this._userAppInitialized = true;
         }
+        await this.loadData();
         this.renderNearbyInvites();
         this.renderMapMarkers();
         this.renderRestaurants();
@@ -104,16 +208,58 @@ class FoodShareApp {
     }
 
     // ======== Merchant App Init ========
-    initMerchantApp() {
+    async initMerchantApp() {
         if (!this._merchantAppInitialized) {
             this.bindMerchantNav();
             this.bindMerchantMenu();
             this.bindMerchantActions();
             this._merchantAppInitialized = true;
         }
+        await this.loadRestaurants();
+        await this.loadReviews();
         this.renderMerchantDashboard();
         this.renderMerchantPackages();
         this.renderMerchantReviews();
+    }
+
+    async loadData() {
+        const [restaurants, invites, reviews, users, myInvites, myGrabs] = await Promise.all([
+            api('/api/restaurants'),
+            api('/api/invites'),
+            api('/api/reviews'),
+            api('/api/reviews/users'),
+            api('/api/invites/my/sent'),
+            api('/api/invites/my/grabs')
+        ]);
+        this.restaurants = restaurants || [];
+        this.invites = invites || [];
+        this.reviews = reviews || [];
+        this.users = users || [];
+        this.myInvites = myInvites || [];
+        this.myGrabs = myGrabs || [];
+    }
+
+    async loadRestaurants() {
+        this.restaurants = (await api('/api/restaurants')) || [];
+    }
+
+    async loadReviews() {
+        this.reviews = (await api('/api/reviews')) || [];
+        this.users = (await api('/api/reviews/users')) || [];
+    }
+
+    getUser(userId) {
+        if (this.currentUser && this.currentUser.id === userId) return this.currentUser;
+        return this.users.find(u => u.id === userId) || { name: '用户', gender: 'male', age: 0, occupationLabel: '' };
+    }
+
+    getRestaurant(id) {
+        return this.restaurants.find(r => r.id === id) || { name: '餐厅', packages: [], emoji: '' };
+    }
+
+    getPackage(restaurantId, packageId) {
+        const r = this.getRestaurant(restaurantId);
+        return r.packages.find(p => p.id === packageId) || { name: '套餐', price: 0, items: '' };
     }
 
     // ======== Navigation ========
@@ -127,6 +273,7 @@ class FoodShareApp {
         });
 
         document.getElementById('createInviteBtn').addEventListener('click', () => {
+            this.populateRestaurantSelect();
             this.showModal('inviteModal');
         });
 
@@ -195,6 +342,8 @@ class FoodShareApp {
     }
 
     logout() {
+        localStorage.removeItem('token');
+        localStorage.removeItem('role');
         this.currentUser = null;
         this.currentMerchant = null;
         this.role = null;
@@ -222,22 +371,26 @@ class FoodShareApp {
     }
 
     // ======== Invite Form ========
-    bindInviteForm() {
+    populateRestaurantSelect() {
         const restaurantSelect = document.getElementById('inviteRestaurant');
-        const packageSelect = document.getElementById('invitePackage');
-
-        MOCK_DATA.restaurants.forEach(r => {
+        restaurantSelect.innerHTML = '<option value="">请选择餐厅</option>';
+        this.restaurants.forEach(r => {
             const opt = document.createElement('option');
             opt.value = r.id;
             opt.textContent = `${r.emoji} ${r.name} (${r.distance}km)`;
             restaurantSelect.appendChild(opt);
         });
+    }
+
+    bindInviteForm() {
+        const restaurantSelect = document.getElementById('inviteRestaurant');
+        const packageSelect = document.getElementById('invitePackage');
 
         restaurantSelect.addEventListener('change', () => {
             const rid = parseInt(restaurantSelect.value);
             packageSelect.innerHTML = '<option value="">请选择套餐</option>';
             if (rid) {
-                const restaurant = MOCK_DATA.restaurants.find(r => r.id === rid);
+                const restaurant = this.getRestaurant(rid);
                 restaurant.packages.filter(p => p.active).forEach(p => {
                     const opt = document.createElement('option');
                     opt.value = p.id;
@@ -269,8 +422,7 @@ class FoodShareApp {
         const pid = parseInt(document.getElementById('invitePackage').value);
 
         if (rid && pid) {
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === rid);
-            const pkg = restaurant.packages.find(p => p.id === pid);
+            const pkg = this.getPackage(rid, pid);
             preview.innerHTML = `
                 <div class="package-preview-name">${pkg.name}</div>
                 <div class="package-preview-items">${pkg.items}</div>
@@ -289,15 +441,14 @@ class FoodShareApp {
 
         let price = 0;
         if (rid && pid) {
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === rid);
-            const pkg = restaurant.packages.find(p => p.id === pid);
+            const pkg = this.getPackage(rid, pid);
             if (payType === 'treat') price = pkg.price;
             else if (payType === 'aa') price = pkg.price / 2;
         }
         document.getElementById('totalPrice').textContent = `¥${price.toFixed(2)}`;
     }
 
-    submitInvite() {
+    async submitInvite() {
         const rid = parseInt(document.getElementById('inviteRestaurant').value);
         const pid = parseInt(document.getElementById('invitePackage').value);
         const payType = document.querySelector('input[name="payType"]:checked').value;
@@ -314,94 +465,60 @@ class FoodShareApp {
             return;
         }
 
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === rid);
-        const pkg = restaurant.packages.find(p => p.id === pid);
+        const pkg = this.getPackage(rid, pid);
         let price = 0;
         if (payType === 'treat') price = pkg.price;
         else if (payType === 'aa') price = pkg.price / 2;
 
+        this.pendingInviteData = {
+            restaurantId: rid,
+            packageId: pid,
+            payType,
+            date,
+            time,
+            message,
+            requirements: {
+                gender: document.getElementById('requireGender').value,
+                ageMin: parseInt(document.getElementById('requireAgeMin').value),
+                ageMax: parseInt(document.getElementById('requireAgeMax').value),
+                education: document.getElementById('requireEducation').value,
+                heightMin: parseInt(document.getElementById('requireHeightMin').value),
+                heightMax: parseInt(document.getElementById('requireHeightMax').value),
+                occupation: document.getElementById('requireOccupation').value
+            }
+        };
+
         if (price > 0) {
             this.pendingAction = 'invite';
-            this.pendingInviteData = {
-                rid, pid, payType, date, time, message,
-                requirements: {
-                    gender: document.getElementById('requireGender').value,
-                    ageMin: parseInt(document.getElementById('requireAgeMin').value),
-                    ageMax: parseInt(document.getElementById('requireAgeMax').value),
-                    education: document.getElementById('requireEducation').value,
-                    heightMin: parseInt(document.getElementById('requireHeightMin').value),
-                    heightMax: parseInt(document.getElementById('requireHeightMax').value),
-                    occupation: document.getElementById('requireOccupation').value
-                }
-            };
+            const restaurant = this.getRestaurant(rid);
             document.getElementById('payAmount').textContent = `¥${price.toFixed(2)}`;
             document.getElementById('payDetail').textContent = `${restaurant.name} - ${pkg.name}`;
             this.hideModal('inviteModal');
             this.showModal('payModal');
         } else {
-            this.createInvite({
-                rid, pid, payType, date, time, message,
-                requirements: {
-                    gender: document.getElementById('requireGender').value,
-                    ageMin: parseInt(document.getElementById('requireAgeMin').value),
-                    ageMax: parseInt(document.getElementById('requireAgeMax').value),
-                    education: document.getElementById('requireEducation').value,
-                    heightMin: parseInt(document.getElementById('requireHeightMin').value),
-                    heightMax: parseInt(document.getElementById('requireHeightMax').value),
-                    occupation: document.getElementById('requireOccupation').value
-                }
-            });
+            await this.createInvite();
         }
     }
 
-    createInvite(data) {
-        const newInvite = {
-            id: this.invites.length + 1,
-            userId: this.currentUser.id,
-            restaurantId: data.rid,
-            packageId: data.pid,
-            payType: data.payType,
-            date: data.date,
-            time: data.time,
-            message: data.message || '期待与你的相遇~',
-            requirements: data.requirements,
-            status: 'waiting',
-            createdAt: new Date().toLocaleString('zh-CN'),
-            distance: (Math.random() * 3 + 0.3).toFixed(1)
-        };
+    async createInvite() {
+        const data = await api('/api/invites', {
+            method: 'POST',
+            body: JSON.stringify(this.pendingInviteData)
+        });
 
-        this.invites.unshift(newInvite);
-        this.myInvites.unshift(newInvite);
+        if (!data || data.error) {
+            this.showToast(data?.error || '发布失败');
+            return;
+        }
+
         this.hideModal('inviteModal');
         this.hideModal('payModal');
         this.showSuccess('邀约发布成功！', '您的邀约已发布成功，等待有缘人来抢单吧！');
+        await this.loadData();
         this.renderNearbyInvites();
         this.renderMapMarkers();
         this.renderOrders();
         this.renderMyOrders();
-    }
-
-    // ======== Condition-Based Filtering ========
-    userMeetsRequirements(user, requirements) {
-        if (requirements.gender !== 'all' && user.gender !== requirements.gender) return false;
-        if (user.age < requirements.ageMin || user.age > requirements.ageMax) return false;
-        if (requirements.education !== 'all') {
-            const reqLevel = EDUCATION_LEVELS.indexOf(requirements.education);
-            const userLevel = EDUCATION_LEVELS.indexOf(user.education);
-            if (userLevel < reqLevel) return false;
-        }
-        if (user.height < requirements.heightMin || user.height > requirements.heightMax) return false;
-        if (requirements.occupation !== 'all' && user.occupation !== requirements.occupation) return false;
-        return true;
-    }
-
-    getVisibleInvites() {
-        if (!this.currentUser) return [];
-        return this.invites.filter(invite => {
-            if (invite.status !== 'waiting') return false;
-            if (invite.userId === this.currentUser.id) return false;
-            return this.userMeetsRequirements(this.currentUser, invite.requirements);
-        });
     }
 
     // ======== Grab Order ========
@@ -415,9 +532,9 @@ class FoodShareApp {
         }
 
         this.currentGrabInvite = invite;
-        const user = MOCK_DATA.users.find(u => u.id === invite.userId);
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-        const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+        const user = this.getUser(invite.userId);
+        const restaurant = this.getRestaurant(invite.restaurantId);
+        const pkg = this.getPackage(invite.restaurantId, invite.packageId);
         const payInfo = PAY_TYPE_MAP[invite.payType];
 
         let grabPrice = 0;
@@ -432,10 +549,10 @@ class FoodShareApp {
                 <div class="grab-detail-section">
                     <h4>邀约人</h4>
                     <div class="grab-user-card">
-                        <img src="${user.avatar}" alt="">
+                        <img src="${this.getUserAvatar(user)}" alt="">
                         <div>
                             <h4>${user.name}</h4>
-                            <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.height}cm · ${user.occupationLabel}</p>
+                            <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.height || ''}cm · ${user.occupationLabel || ''}</p>
                         </div>
                     </div>
                 </div>
@@ -468,6 +585,7 @@ class FoodShareApp {
     }
 
     buildRequirementsHtml(req) {
+        if (!req) return '';
         const tags = [];
         if (req.gender !== 'all') tags.push(req.gender === 'male' ? '限男性' : '限女性');
         if (req.ageMin || req.ageMax) tags.push(`年龄 ${req.ageMin}-${req.ageMax}岁`);
@@ -477,12 +595,11 @@ class FoodShareApp {
         return tags.map(t => `<span class="grab-requirement">${t}</span>`).join('');
     }
 
-    confirmGrabOrder() {
+    async confirmGrabOrder() {
         const invite = this.currentGrabInvite;
         if (!invite) return;
 
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-        const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+        const pkg = this.getPackage(invite.restaurantId, invite.packageId);
 
         let grabPrice = 0;
         if (invite.payType === 'aa') grabPrice = pkg.price / 2;
@@ -490,37 +607,41 @@ class FoodShareApp {
 
         if (grabPrice > 0) {
             this.pendingAction = 'grab';
+            const restaurant = this.getRestaurant(invite.restaurantId);
             document.getElementById('payAmount').textContent = `¥${grabPrice.toFixed(2)}`;
             document.getElementById('payDetail').textContent = `抢单 - ${restaurant.name} ${pkg.name}`;
             this.hideModal('grabModal');
             this.showModal('payModal');
         } else {
-            this.completeGrab();
+            await this.completeGrab();
         }
     }
 
-    completeGrab() {
+    async completeGrab() {
         const invite = this.currentGrabInvite;
-        invite.status = 'matched';
-        invite.grabbedBy = this.currentUser.id;
-        this.myGrabs.unshift(invite);
+        const data = await api(`/api/invites/${invite.id}/grab`, { method: 'PUT' });
+
+        if (!data || data.error) {
+            this.showToast(data?.error || '抢单失败');
+            return;
+        }
+
         this.hideModal('grabModal');
         this.hideModal('payModal');
         this.showSuccess('抢单成功！', `恭喜！您已成功抢单，请于 ${invite.date} ${invite.time} 前往用餐。`);
+        await this.loadData();
         this.renderNearbyInvites();
         this.renderOrders();
         this.renderMyOrders();
     }
 
-    processPayment() {
+    async processPayment() {
         this.hideModal('payModal');
-        setTimeout(() => {
-            if (this.pendingAction === 'invite') {
-                this.createInvite(this.pendingInviteData);
-            } else if (this.pendingAction === 'grab') {
-                this.completeGrab();
-            }
-        }, 500);
+        if (this.pendingAction === 'invite') {
+            await this.createInvite();
+        } else if (this.pendingAction === 'grab') {
+            await this.completeGrab();
+        }
     }
 
     showSuccess(title, message) {
@@ -565,15 +686,15 @@ class FoodShareApp {
         document.getElementById('partnerComment').value = '';
 
         const partnerId = invite.userId === this.currentUser.id ? invite.grabbedBy : invite.userId;
-        const partner = MOCK_DATA.users.find(u => u.id === partnerId);
+        const partner = this.getUser(partnerId);
         document.getElementById('reviewPartnerInfo').innerHTML = `
-            <img src="${partner.avatar}" alt="">
+            <img src="${this.getUserAvatar(partner)}" alt="">
             <span>${partner.name}</span>
         `;
         this.showModal('reviewModal');
     }
 
-    submitReview() {
+    async submitReview() {
         if (this.packageRating === 0 || this.partnerRating === 0) {
             this.showToast('请完成所有评分');
             return;
@@ -582,23 +703,27 @@ class FoodShareApp {
         const invite = this.currentReviewOrder;
         const partnerId = invite.userId === this.currentUser.id ? invite.grabbedBy : invite.userId;
 
-        const review = {
-            id: this.reviews.length + 1,
-            userId: this.currentUser.id,
-            restaurantId: invite.restaurantId,
-            packageId: invite.packageId,
-            packageRating: this.packageRating,
-            packageComment: document.getElementById('packageComment').value || '好评',
-            partnerUserId: partnerId,
-            partnerRating: this.partnerRating,
-            partnerComment: document.getElementById('partnerComment').value || '不错的饭搭子',
-            createdAt: new Date().toLocaleString('zh-CN')
-        };
+        const data = await api('/api/reviews', {
+            method: 'POST',
+            body: JSON.stringify({
+                restaurantId: invite.restaurantId,
+                packageId: invite.packageId,
+                packageRating: this.packageRating,
+                packageComment: document.getElementById('packageComment').value || '好评',
+                partnerUserId: partnerId,
+                partnerRating: this.partnerRating,
+                partnerComment: document.getElementById('partnerComment').value || '不错的饭搭子'
+            })
+        });
 
-        this.reviews.unshift(review);
-        invite.reviewed = true;
+        if (!data || data.error) {
+            this.showToast(data?.error || '提交失败');
+            return;
+        }
+
         this.hideModal('reviewModal');
         this.showToast('评价提交成功！');
+        await this.loadData();
         this.renderMyOrders();
         this.renderReviews();
     }
@@ -611,16 +736,16 @@ class FoodShareApp {
         }
 
         container.innerHTML = this.reviews.map(review => {
-            const user = MOCK_DATA.users.find(u => u.id === review.userId);
-            const partner = MOCK_DATA.users.find(u => u.id === review.partnerUserId);
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === review.restaurantId);
-            const pkg = restaurant.packages.find(p => p.id === review.packageId);
+            const user = this.getUser(review.userId);
+            const partner = this.getUser(review.partnerUserId);
+            const restaurant = this.getRestaurant(review.restaurantId);
+            const pkg = this.getPackage(review.restaurantId, review.packageId);
 
             return `
                 <div class="review-card">
                     <div class="review-card-header">
                         <div class="review-user">
-                            <img src="${user.avatar}" alt="">
+                            <img src="${this.getUserAvatar(user)}" alt="">
                             <div>
                                 <h4>${user.name}</h4>
                                 <span class="review-time">${review.createdAt}</span>
@@ -631,7 +756,7 @@ class FoodShareApp {
                         <div class="review-section">
                             <div class="review-target">
                                 <i class="fas fa-utensils"></i>
-                                <span>${restaurant.name} · ${pkg ? pkg.name : '套餐'}</span>
+                                <span>${restaurant.name} · ${pkg.name}</span>
                             </div>
                             <div class="review-stars">${this.renderStars(review.packageRating)}</div>
                             <p class="review-comment">${review.packageComment}</p>
@@ -639,7 +764,7 @@ class FoodShareApp {
                         <div class="review-section">
                             <div class="review-target">
                                 <i class="fas fa-user-friends"></i>
-                                <span>饭搭子：${partner ? partner.name : '用户'}</span>
+                                <span>饭搭子：${partner.name}</span>
                             </div>
                             <div class="review-stars">${this.renderStars(review.partnerRating)}</div>
                             <p class="review-comment">${review.partnerComment}</p>
@@ -661,7 +786,7 @@ class FoodShareApp {
     // ======== Rendering ========
     renderNearbyInvites() {
         const container = document.getElementById('nearbyInvites');
-        const visibleInvites = this.getVisibleInvites();
+        const visibleInvites = this.invites;
         document.getElementById('nearbyCount').textContent = visibleInvites.length;
 
         if (visibleInvites.length === 0) {
@@ -670,19 +795,19 @@ class FoodShareApp {
         }
 
         container.innerHTML = visibleInvites.map(invite => {
-            const user = MOCK_DATA.users.find(u => u.id === invite.userId);
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-            const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+            const user = this.getUser(invite.userId);
+            const restaurant = this.getRestaurant(invite.restaurantId);
+            const pkg = this.getPackage(invite.restaurantId, invite.packageId);
             const payInfo = PAY_TYPE_MAP[invite.payType];
 
             return `
                 <div class="invite-card" onclick="app.showGrabDetail(${invite.id})">
                     <div class="invite-card-header">
                         <div class="invite-user">
-                            <img src="${user.avatar}" alt="">
+                            <img src="${this.getUserAvatar(user)}" alt="">
                             <div class="invite-user-info">
                                 <span class="invite-user-name">${user.name}</span>
-                                <span class="invite-user-meta">${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.occupationLabel}</span>
+                                <span class="invite-user-meta">${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.occupationLabel || ''}</span>
                             </div>
                         </div>
                         <span class="invite-pay-tag ${payInfo.class}">${payInfo.label}</span>
@@ -703,7 +828,7 @@ class FoodShareApp {
 
     renderMapMarkers() {
         const container = document.getElementById('nearbyMarkers');
-        const visibleInvites = this.getVisibleInvites();
+        const visibleInvites = this.invites;
 
         const positions = [
             { top: '25%', left: '30%' },
@@ -716,8 +841,8 @@ class FoodShareApp {
         ];
 
         container.innerHTML = visibleInvites.map((invite, idx) => {
-            const user = MOCK_DATA.users.find(u => u.id === invite.userId);
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
+            const user = this.getUser(invite.userId);
+            const restaurant = this.getRestaurant(invite.restaurantId);
             const payInfo = PAY_TYPE_MAP[invite.payType];
             const pos = positions[idx % positions.length];
 
@@ -732,15 +857,15 @@ class FoodShareApp {
 
     renderRestaurants(filter = 'all') {
         const container = document.getElementById('restaurantGrid');
-        let restaurants = MOCK_DATA.restaurants;
+        let restaurants = this.restaurants;
 
         if (filter !== 'all') {
             restaurants = restaurants.filter(r => r.category === filter);
         }
 
         container.innerHTML = restaurants.map(r => {
-            const avgRating = this.getRestaurantAvgRating(r.id);
             const reviewCount = this.reviews.filter(rev => rev.restaurantId === r.id).length;
+            const avgRating = this.getRestaurantAvgRating(r.id);
 
             return `
                 <div class="restaurant-card">
@@ -775,12 +900,12 @@ class FoodShareApp {
 
     renderOrders() {
         const container = document.getElementById('ordersGrid');
-        const visibleInvites = this.getVisibleInvites();
+        const visibleInvites = this.invites;
 
         container.innerHTML = visibleInvites.map(invite => {
-            const user = MOCK_DATA.users.find(u => u.id === invite.userId);
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-            const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+            const user = this.getUser(invite.userId);
+            const restaurant = this.getRestaurant(invite.restaurantId);
+            const pkg = this.getPackage(invite.restaurantId, invite.packageId);
             const payInfo = PAY_TYPE_MAP[invite.payType];
             const requirements = this.buildRequirementsHtml(invite.requirements);
 
@@ -793,10 +918,10 @@ class FoodShareApp {
                 <div class="order-card" onclick="app.showGrabDetail(${invite.id})">
                     <div class="order-card-top">
                         <div class="order-user">
-                            <img src="${user.avatar}" alt="">
+                            <img src="${this.getUserAvatar(user)}" alt="">
                             <div class="order-user-info">
                                 <h4>${user.name}</h4>
-                                <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.occupationLabel}</p>
+                                <p>${user.gender === 'male' ? '男' : '女'} · ${user.age}岁 · ${user.occupationLabel || ''}</p>
                             </div>
                         </div>
                         <span class="invite-pay-tag ${payInfo.class}">${payInfo.label}</span>
@@ -830,18 +955,19 @@ class FoodShareApp {
             invitesList.innerHTML = `<div class="empty-state"><i class="fas fa-paper-plane"></i><p>还没有发起过邀约</p></div>`;
         } else {
             invitesList.innerHTML = this.myInvites.map(invite => {
-                const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-                const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+                const restaurant = this.getRestaurant(invite.restaurantId);
+                const pkg = this.getPackage(invite.restaurantId, invite.packageId);
                 const payInfo = PAY_TYPE_MAP[invite.payType];
                 const statusClass = invite.status === 'waiting' ? 'waiting' : 'matched';
                 const statusText = invite.status === 'waiting' ? '等待抢单' : '已匹配';
 
+                const hasReview = this.reviews.some(r => r.userId === this.currentUser.id && r.restaurantId === invite.restaurantId && r.packageId === invite.packageId);
                 let actionHtml = '';
                 if (invite.status === 'waiting') {
                     actionHtml = `<button class="btn-danger" onclick="app.cancelInvite(${invite.id})">取消</button>`;
-                } else if (invite.status === 'matched' && !invite.reviewed) {
+                } else if (invite.status === 'matched' && !hasReview) {
                     actionHtml = `<button class="btn-success" onclick="app.openReviewForInvite(${invite.id})">评价</button>`;
-                } else if (invite.reviewed) {
+                } else if (hasReview) {
                     actionHtml = `<span class="reviewed-tag">已评价</span>`;
                 }
 
@@ -867,12 +993,13 @@ class FoodShareApp {
             grabsList.innerHTML = `<div class="empty-state"><i class="fas fa-hand-pointer"></i><p>还没有抢过单</p></div>`;
         } else {
             grabsList.innerHTML = this.myGrabs.map(invite => {
-                const user = MOCK_DATA.users.find(u => u.id === invite.userId);
-                const restaurant = MOCK_DATA.restaurants.find(r => r.id === invite.restaurantId);
-                const pkg = restaurant.packages.find(p => p.id === invite.packageId);
+                const user = this.getUser(invite.userId);
+                const restaurant = this.getRestaurant(invite.restaurantId);
+                const pkg = this.getPackage(invite.restaurantId, invite.packageId);
 
+                const hasReview = this.reviews.some(r => r.userId === this.currentUser.id && r.restaurantId === invite.restaurantId && r.packageId === invite.packageId);
                 let actionHtml = '';
-                if (!invite.reviewed) {
+                if (!hasReview) {
                     actionHtml = `<button class="btn-success" onclick="app.openReviewForGrab(${invite.id})">评价</button>`;
                 } else {
                     actionHtml = `<span class="reviewed-tag">已评价</span>`;
@@ -907,10 +1034,14 @@ class FoodShareApp {
         if (invite) this.openReviewModal(invite);
     }
 
-    cancelInvite(inviteId) {
-        this.invites = this.invites.filter(i => i.id !== inviteId);
-        this.myInvites = this.myInvites.filter(i => i.id !== inviteId);
+    async cancelInvite(inviteId) {
+        const data = await api(`/api/invites/${inviteId}/cancel`, { method: 'PUT' });
+        if (!data || data.error) {
+            this.showToast(data?.error || '取消失败');
+            return;
+        }
         this.showToast('邀约已取消');
+        await this.loadData();
         this.renderNearbyInvites();
         this.renderMapMarkers();
         this.renderOrders();
@@ -978,15 +1109,17 @@ class FoodShareApp {
         reader.onload = (ev) => {
             const imgUrl = ev.target.result;
             document.getElementById('uploadPreview').innerHTML = `<img src="${imgUrl}" alt="店铺图片" style="width:100%;height:100%;object-fit:cover;border-radius:8px;">`;
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
-            restaurant.image = imgUrl;
             this.showToast('图片上传成功！');
         };
         reader.readAsDataURL(file);
     }
 
     renderMerchantDashboard() {
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
+        if (!this.currentMerchant || !this.currentMerchant.restaurantId) {
+            document.getElementById('shopInfo').innerHTML = '<p>暂无关联餐厅</p>';
+            return;
+        }
+        const restaurant = this.getRestaurant(this.currentMerchant.restaurantId);
         const activePackages = restaurant.packages.filter(p => p.active).length;
         document.getElementById('statPackages').textContent = activePackages;
 
@@ -1003,7 +1136,8 @@ class FoodShareApp {
     }
 
     renderMerchantPackages() {
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
+        if (!this.currentMerchant || !this.currentMerchant.restaurantId) return;
+        const restaurant = this.getRestaurant(this.currentMerchant.restaurantId);
         const container = document.getElementById('merchantPackagesList');
 
         container.innerHTML = restaurant.packages.map(pkg => `
@@ -1026,7 +1160,7 @@ class FoodShareApp {
     }
 
     editPackage(packageId) {
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
+        const restaurant = this.getRestaurant(this.currentMerchant.restaurantId);
         const pkg = restaurant.packages.find(p => p.id === packageId);
         if (!pkg) return;
 
@@ -1038,7 +1172,7 @@ class FoodShareApp {
         this.showModal('packageModal');
     }
 
-    savePackage() {
+    async savePackage() {
         const name = document.getElementById('pkgName').value.trim();
         const price = parseInt(document.getElementById('pkgPrice').value);
         const items = document.getElementById('pkgItems').value.trim();
@@ -1048,38 +1182,53 @@ class FoodShareApp {
             return;
         }
 
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
-
         if (this.editingPackageId) {
-            const pkg = restaurant.packages.find(p => p.id === this.editingPackageId);
-            pkg.name = name;
-            pkg.price = price;
-            pkg.items = items;
+            const data = await api(`/api/restaurants/packages/${this.editingPackageId}`, {
+                method: 'PUT',
+                body: JSON.stringify({ name, price, items })
+            });
+            if (!data || data.error) {
+                this.showToast(data?.error || '更新失败');
+                return;
+            }
             this.showToast('套餐更新成功！');
         } else {
-            const newId = Math.max(...restaurant.packages.map(p => p.id)) + 1;
-            restaurant.packages.push({ id: newId, name, price, items, active: true });
+            const data = await api('/api/restaurants/packages', {
+                method: 'POST',
+                body: JSON.stringify({ restaurantId: this.currentMerchant.restaurantId, name, price, items })
+            });
+            if (!data || data.error) {
+                this.showToast(data?.error || '添加失败');
+                return;
+            }
             this.showToast('套餐添加成功！');
         }
 
         this.hideModal('packageModal');
+        await this.loadRestaurants();
         this.renderMerchantPackages();
         this.renderMerchantDashboard();
     }
 
-    togglePackage(packageId, active) {
-        const restaurant = MOCK_DATA.restaurants.find(r => r.id === this.currentMerchant.restaurantId);
-        const pkg = restaurant.packages.find(p => p.id === packageId);
-        pkg.active = active;
+    async togglePackage(packageId, active) {
+        const data = await api(`/api/restaurants/packages/${packageId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ active })
+        });
+        if (!data || data.error) {
+            this.showToast(data?.error || '操作失败');
+            return;
+        }
         this.showToast(active ? '套餐已上架' : '套餐已下架');
+        await this.loadRestaurants();
         this.renderMerchantPackages();
         this.renderMerchantDashboard();
     }
 
     renderMerchantReviews() {
+        if (!this.currentMerchant || !this.currentMerchant.restaurantId) return;
         const container = document.getElementById('merchantReviewsList');
-        const restaurantId = this.currentMerchant.restaurantId;
-        const restaurantReviews = this.reviews.filter(r => r.restaurantId === restaurantId);
+        const restaurantReviews = this.reviews.filter(r => r.restaurantId === this.currentMerchant.restaurantId);
 
         if (restaurantReviews.length === 0) {
             container.innerHTML = '<div class="empty-state"><i class="fas fa-comments"></i><p>暂无顾客评价</p></div>';
@@ -1087,15 +1236,14 @@ class FoodShareApp {
         }
 
         container.innerHTML = restaurantReviews.map(review => {
-            const user = MOCK_DATA.users.find(u => u.id === review.userId);
-            const restaurant = MOCK_DATA.restaurants.find(r => r.id === review.restaurantId);
-            const pkg = restaurant.packages.find(p => p.id === review.packageId);
+            const user = this.getUser(review.userId);
+            const pkg = this.getPackage(review.restaurantId, review.packageId);
 
             return `
                 <div class="review-card">
                     <div class="review-card-header">
                         <div class="review-user">
-                            <img src="${user.avatar}" alt="">
+                            <img src="${this.getUserAvatar(user)}" alt="">
                             <div>
                                 <h4>${user.name}</h4>
                                 <span class="review-time">${review.createdAt}</span>
@@ -1106,7 +1254,7 @@ class FoodShareApp {
                         <div class="review-section">
                             <div class="review-target">
                                 <i class="fas fa-utensils"></i>
-                                <span>${pkg ? pkg.name : '套餐'}</span>
+                                <span>${pkg.name}</span>
                             </div>
                             <div class="review-stars">${this.renderStars(review.packageRating)}</div>
                             <p class="review-comment">${review.packageComment}</p>
